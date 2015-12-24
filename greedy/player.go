@@ -68,7 +68,7 @@ func (g *Game) Play() {
     
     dice := FreshDice
     
-    turnsLeft := 100
+    turnsLeft := 1000
     
     for player := range turns {
         minScore := 0
