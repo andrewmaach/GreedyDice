@@ -7,18 +7,12 @@ import (
 
 const FirstRoundMinScore int = 800
 const WinningScore int = 10000
+const debug = false
 
-type Strategy struct {
-    Id string
-    MinScore int
-}
-
-func (s *Strategy) DoRollFirst(dice Dice, minScore int) bool {
-    return dice.RunningScore > s.MinScore
-}
-
-func (s *Strategy) DoRoll(dice Dice) bool {
-    return dice.RunningScore < s.MinScore
+type Strategy interface {
+    Id() string
+    ShouldKeep(dice Dice, game *Game, minScore int) bool
+    ShouldRoll(dice Dice, game *Game) bool
 }
 
 type Dice struct {
@@ -74,6 +68,8 @@ func (g *Game) Play() {
     
     dice := FreshDice
     
+    turnsLeft := 100
+    
     for player := range turns {
         minScore := 0
         
@@ -86,8 +82,8 @@ func (g *Game) Play() {
             minScore = g.HighestScore() - player.Score + 1
         }
         
-        dice = player.RunTurn(dice, minScore)
-        fmt.Printf("%s scored %d, totaling %d \n \n", player.Plan.Id, dice.RunningScore, player.Score)
+        dice = player.RunTurn(dice, minScore, g)
+        if debug{fmt.Printf("%s scored %d, totaling %d \n \n", player.Plan.Id(), dice.RunningScore, player.Score)}
         
 
         
@@ -100,21 +96,26 @@ func (g *Game) Play() {
             }
            
         }
+        
+        turnsLeft -= 1
+        if turnsLeft < 0 {
+            panic("Too many turns in game.")
+        }
     }
 }
 
-func (p *Player) RunTurn(passedDice Dice, minScore int) Dice {
+func (p *Player) RunTurn(passedDice Dice, minScore int, game *Game) Dice {
     dice := FreshDice
     kept := false
-    if p.Plan.DoRollFirst(passedDice, minScore) {
+    if p.Plan.ShouldKeep(passedDice, game, minScore) {
         dice = passedDice
-        fmt.Println("Keeping dice")
+        if debug{fmt.Println("Keeping dice")}
         kept = true
     }
     
 
     
-    for kept || p.Plan.DoRoll(dice) || dice.RunningScore < minScore {
+    for kept || p.Plan.ShouldRoll(dice, game) || dice.RunningScore < minScore {
         if !dice.Roll() {
             return FreshDice
         }
@@ -141,12 +142,12 @@ func (d *Dice) evaluateScore() bool {
         Count [6]int
     }
     
-     fmt.Printf("rolled: ")
+     if debug{fmt.Printf("rolled: ")}
     
      // Count how many there are of each number.
     var eval Evaluation
     for i := 0; i < d.Count; i++ {
-        fmt.Printf("%d ", d.Numbers[i])
+        if debug{fmt.Printf("%d ", d.Numbers[i])}
         eval.Count[d.Numbers[i] - 1] += 1
     }
     
@@ -180,7 +181,7 @@ func (d *Dice) evaluateScore() bool {
          d.Count = 8
      }
      
-     fmt.Printf("(%d points, %d die left, total %d)\n", rollScore, d.Count, d.RunningScore)
+     if debug{fmt.Printf("(%d points, %d die left, total %d)\n", rollScore, d.Count, d.RunningScore)}
      
      if rollScore == 0 {
          d.RunningScore = 0
@@ -192,9 +193,9 @@ func (d *Dice) evaluateScore() bool {
 }
 
 func (d *Dice) Print() {
-    fmt.Printf("   dice left: %d, running score: %d, dice:", d.Count, d.RunningScore)
+    if debug{fmt.Printf("   dice left: %d, running score: %d, dice:", d.Count, d.RunningScore)}
     for i := 0; i < 8; i++ {
-        fmt.Printf("%d ", d.Numbers[i])
+        if debug{fmt.Printf("%d ", d.Numbers[i])}
     }
-    fmt.Println()
+    if debug{fmt.Println()}
 }
