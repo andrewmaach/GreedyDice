@@ -6,6 +6,7 @@ import (
     "time"
     "fmt"
     "strconv"
+    "sync"
 )
 
 const matchSize int = 5
@@ -13,9 +14,9 @@ const matchSize int = 5
 func main() {
     rand.Seed(time.Now().UnixNano())
     
-    //records := make(map[string]WinLossRecord)
     
-    pool := SimpleStrategyGenerator("Adam", 1000)
+    
+    pool := SimpleStrategyGenerator("Adam", 9998)
    
     pool = append(pool, greedy.Strategy(SimpleStrategy{
                 "R2-D2",
@@ -30,28 +31,97 @@ func main() {
             }))
     
     
+    records := War(pool)
     
-    for i := 0 ; i < 100 ; i++ {
-        
-        strategies := []greedy.Strategy{}
-        
-        for c := 0; c < matchSize; c++ {
-            item := pool[rand.Intn(len(pool))]
-            strategies = append(strategies, item)
+    for _, item := range records {
+        if item.wins > 0 {
+            fmt.Printf("%s won %d of %d games.\n", item.id, item.wins, item.matches)
         }
-        
-        
-        game := greedy.CreateGame(strategies)
-        game.Play()
-        for _, player := range game.Players {
-            fmt.Printf("%s: %d\n", player.Plan.Id(), player.Score)
+    }
+}
+
+
+func War(pool []greedy.Strategy) map[string]WinLossRecord {
+    
+    battleResults := make(chan WinLossRecord, 100)
+    battlesToFight := make(chan []greedy.Strategy, 100)
+    
+    go func(){
+        for i := 0; i < 1000000; i++ {
+           battlesToFight <- CreateBattle(pool, battleResults)
+        }
+        close(battlesToFight)
+    }()
+    
+    var wg sync.WaitGroup
+    for i := 0; i < 10; i++ {
+        wg.Add(1)
+        go func(){
+            defer wg.Done()
+            for battle := range battlesToFight {
+                winner := RepeatMatches(battle)
+                battleResults <- WinLossRecord{
+                    id: winner,
+                    wins: 1,
+                }
+            }
+
+        }()
+    }
+    
+    go func() {
+        wg.Wait()
+        close(battleResults)
+    }()
+    
+    records := make(map[string]WinLossRecord)
+    
+    for battle := range battleResults {
+        if battle.wins > 0 {
+            //fmt.Printf("%s won! \n", battle.id)
+        }
+        record, ok := records[battle.id]
+        if !ok {
+            records[battle.id] = battle
+        } else {
+            record.wins += battle.wins
+            record.matches += battle.matches
+            records[battle.id] = record
         }
     }
     
+    return records
+    
+}
+
+func CreateBattle(pool []greedy.Strategy, results chan WinLossRecord) []greedy.Strategy {
+    strategies := []greedy.Strategy{}
+    
+    for c := 0; c < matchSize; c++ {
+        item := pool[rand.Intn(len(pool))]
+        
+        results <- WinLossRecord{
+            id: item.Id(),
+            matches: 1,
+        }
+        
+        strategies = append(strategies, item)
+    }
+    
+    return strategies
+}
+
+
+// Returns the winner
+func RepeatMatches(strategies []greedy.Strategy) string {
+    game := greedy.CreateGame(strategies)
+    game.Play()
+    return game.Winner()
 }
 
 type WinLossRecord struct {
-    winavg float64
+    id string
+    wins int
     matches int
 }
 

@@ -48,6 +48,19 @@ type Game struct {
     LastRound bool
 }
 
+func (g *Game) Winner() string {
+    highest := -1
+    id := ""
+    for _, player := range g.Players {
+        if player.Score > highest {
+            highest = player.Score
+            id = player.Plan.Id()
+        }
+    }
+    
+    return id
+}
+
 func (g *Game) HighestScore() int {
     highest := 0
     for _, player := range g.Players {
@@ -68,7 +81,7 @@ func (g *Game) Play() {
     
     dice := FreshDice
     
-    turnsLeft := 1000
+    turnsLeft := 100000
     
     for player := range turns {
         minScore := 0
