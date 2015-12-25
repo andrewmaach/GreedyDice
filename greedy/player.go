@@ -5,7 +5,7 @@ import (
     "fmt"
 )
 
-const FirstRoundMinScore int = 800
+const FirstRoundMinScore int = 850
 const WinningScore int = 10000
 const debug = false
 
@@ -13,7 +13,10 @@ type Strategy interface {
     Id() string
     ShouldKeep(dice Dice, game *Game, minScore int) bool
     ShouldRoll(dice Dice, game *Game) bool
+    Breed(b Strategy, id string) Strategy
+    Print()
 }
+
 
 type Dice struct {
     Numbers [8]int
